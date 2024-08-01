@@ -6,16 +6,19 @@
 # Specify the following settings:
 locals {
   # Settings for the Managed Service for OpenSearch cluster:
-  source_admin_password = "password" # Password of user in Managed Service for OpenSearch
+  source_admin_password = "" # Password of user in Managed Service for OpenSearch
 
   # Settings for the Managed Service for ClickHouse cluster:
-  mch_db_name       = "db1"      # Name of the Managed Service for ClickHouse database
-  mch_username      = "user1"    # Name of the Managed Service for ClickHouse user
-  mch_user_password = "password" # Password of the Managed Service for ClickHouse user
+  mch_db_name       = "" # Name of the Managed Service for ClickHouse database
+  mch_username      = "" # Name of the Managed Service for ClickHouse user
+  mch_user_password = "" # Password of the Managed Service for ClickHouse user
 
   # Specify these settings ONLY AFTER the clusters are created. Then run "terraform apply" command again.
   # You should set up endpoints using the GUI to obtain their IDs
   source_endpoint_id = "" # Source endpoint ID
+
+  # Setting for the YC CLI that allows running CLI command to activate cluster
+  profile_name = "" # Name of the YC CLI profile
 
   # The following settings are predefined. Change them only if necessary.
   opensearch_port      = 9200                  # Managed Service for OpenSearch port for Internet connection  
@@ -111,10 +114,11 @@ resource "yandex_mdb_opensearch_cluster" "my-os-clstr" {
 
     dashboards {
       node_groups {
-        name        = local.dashboards_name
-        hosts_count = 1
-        zone_ids    = ["ru-central1-a"]
-        subnet_ids  = [yandex_vpc_subnet.mysubnet.id]
+        name             = local.dashboards_name
+        assign_public_ip = true
+        hosts_count      = 1
+        zone_ids         = ["ru-central1-a"]
+        subnet_ids       = [yandex_vpc_subnet.mysubnet.id]
         resources {
           resource_preset_id = "s2.micro"  # 2 vCPU, 8 GB RAM
           disk_size          = 10737418240 # Bytes
@@ -127,6 +131,9 @@ resource "yandex_mdb_opensearch_cluster" "my-os-clstr" {
   maintenance_window {
     type = "ANYTIME"
   }
+  depends_on = [
+    yandex_vpc_subnet.mysubnet
+  ]
 }
 
 resource "yandex_mdb_clickhouse_cluster" "mych" {
@@ -145,9 +152,10 @@ resource "yandex_mdb_clickhouse_cluster" "mych" {
   }
 
   host {
-    type      = "CLICKHOUSE"
-    zone      = "ru-central1-a"
-    subnet_id = yandex_vpc_subnet.mysubnet.id
+    type             = "CLICKHOUSE"
+    zone             = "ru-central1-a"
+    subnet_id        = yandex_vpc_subnet.mysubnet.id
+    assign_public_ip = true
   }
 
   database {
@@ -184,10 +192,15 @@ resource "yandex_datatransfer_endpoint" "managed-clickhouse-target" {
 
 # Uncomment this block ONLY AFTER creating source endpoint and setting source ID variable.
 # After uncommenting run `terraform apply` again.
-# resource "yandex_datatransfer_transfer" "mos-to-mch-transfer" {
+#resource "yandex_datatransfer_transfer" "mos-to-mch-transfer" {
 #  description = "Transfer from the Managed Service for OpenSearch cluster to the Managed Service for ClickHouse cluster"
 #  name        = local.transfer_name
 #  source_id   = local.source_endpoint_id
 #  target_id   = yandex_datatransfer_endpoint.managed-clickhouse-target.id
 #  type        = "SNAPSHOT_ONLY" # Copy all data from the source server
+#
+#  provisioner "local-exec" {
+#    command = "yc --profile ${local.profile_name} datatransfer transfer activate ${yandex_datatransfer_transfer.mos-to-mch-transfer.id}"
+#  }
 #}
+
