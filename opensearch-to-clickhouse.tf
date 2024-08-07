@@ -5,8 +5,9 @@
 
 # Specify the following settings:
 locals {
-  # Settings for the Managed Service for OpenSearch cluster:
-  source_admin_password = "" # Password of user in Managed Service for OpenSearch
+  # Settings for the Managed Service for OpenSearch cluster:  
+  mos_version           = "" # Desired version of the Opensearch. For available versions, see the documentation main page: https://yandex.cloud/en/docs/managed-opensearch/.
+  source_admin_password = "" # Password of admin in Managed Service for OpenSearch
 
   # Settings for the Managed Service for ClickHouse cluster:
   mch_db_name       = "" # Name of the Managed Service for ClickHouse database
@@ -16,9 +17,10 @@ locals {
   # Specify these settings ONLY AFTER the clusters are created. Then run "terraform apply" command again.
   # You should set up endpoints using the GUI to obtain their IDs
   source_endpoint_id = "" # Source endpoint ID
+  transfer_enabled   = 0  # Set to 1 to enable creation of target endpoint and transfer
 
   # Setting for the YC CLI that allows running CLI command to activate cluster
-  profile_name = "" # Name of the YC CLI profile
+  profile_name = "default" # Name of the YC CLI profile
 
   # The following settings are predefined. Change them only if necessary.
   opensearch_port      = 9200                  # Managed Service for OpenSearch port for Internet connection  
@@ -27,8 +29,7 @@ locals {
   network_name         = "mynet"               # Name of the network for Managed Service for OpenSearch cluster and Managed Service for ClickHouse cluster
   subnet_name          = "mysubnet"            # Name of the subnet for Managed Service for OpenSearch cluster and Managed Service for ClickHouse cluster
   sg_name              = "mos-mch-sg"          # Name of the security group for Managed Service for OpenSearch cluster and Managed Service for ClickHouse cluster
-  mos_cluster_name     = "mos-cluster"         # Name of the Managed Service for OpenSearch cluster
-  mos_version          = "2.8"                 # Version of the Managed Service for OpenSearch cluster   
+  mos_cluster_name     = "mos-cluster-3845-2"  # Name of the Managed Service for OpenSearch cluster  
   node_group_name      = "mos-group"           # Node group name in the Managed Service for OpenSearch cluster
   dashboards_name      = "dashboards"          # Name of the dashboards node group in the Managed Service for OpenSearch cluster
   mch_cluster_name     = "mch-cluster"         # Name of the Managed Service for ClickHouse cluster
@@ -84,7 +85,7 @@ resource "yandex_vpc_security_group" "mos-mch-sg" {
   }
 }
 
-resource "yandex_mdb_opensearch_cluster" "my-os-clstr" {
+resource "yandex_mdb_opensearch_cluster" "my-os-cluster" {
   description        = "Managed Service for OpenSearch cluster"
   name               = local.mos_cluster_name
   environment        = "PRODUCTION"
@@ -131,9 +132,6 @@ resource "yandex_mdb_opensearch_cluster" "my-os-clstr" {
   maintenance_window {
     type = "ANYTIME"
   }
-  depends_on = [
-    yandex_vpc_subnet.mysubnet
-  ]
 }
 
 resource "yandex_mdb_clickhouse_cluster" "mych" {
@@ -173,6 +171,7 @@ resource "yandex_mdb_clickhouse_cluster" "mych" {
 
 resource "yandex_datatransfer_endpoint" "managed-clickhouse-target" {
   description = "Target endpoint for the Managed Service for ClickHouse cluster"
+  count       = local.transfer_enabled
   name        = local.target_endpoint_name
   settings {
     clickhouse_target {
@@ -190,17 +189,16 @@ resource "yandex_datatransfer_endpoint" "managed-clickhouse-target" {
   }
 }
 
-# Uncomment this block ONLY AFTER creating source endpoint and setting source ID variable.
-# After uncommenting run `terraform apply` again.
-#resource "yandex_datatransfer_transfer" "mos-to-mch-transfer" {
-#  description = "Transfer from the Managed Service for OpenSearch cluster to the Managed Service for ClickHouse cluster"
-#  name        = local.transfer_name
-#  source_id   = local.source_endpoint_id
-#  target_id   = yandex_datatransfer_endpoint.managed-clickhouse-target.id
-#  type        = "SNAPSHOT_ONLY" # Copy all data from the source server
-#
-#  provisioner "local-exec" {
-#    command = "yc --profile ${local.profile_name} datatransfer transfer activate ${yandex_datatransfer_transfer.mos-to-mch-transfer.id}"
-#  }
-#}
 
+resource "yandex_datatransfer_transfer" "mos-to-mch-transfer" {
+  description = "Transfer from the Managed Service for OpenSearch cluster to the Managed Service for ClickHouse cluster"
+  count       = local.transfer_enabled
+  name        = local.transfer_name
+  source_id   = local.source_endpoint_id
+  target_id   = yandex_datatransfer_endpoint.managed-clickhouse-target[count.index].id
+  type        = "SNAPSHOT_ONLY" # Copy all data from the source server
+
+  provisioner "local-exec" {
+    command = "yc --profile ${local.profile_name} datatransfer transfer activate ${yandex_datatransfer_transfer.mos-to-mch-transfer[count.index].id}"
+  }
+}
