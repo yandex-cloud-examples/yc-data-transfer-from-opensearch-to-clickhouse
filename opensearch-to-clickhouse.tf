@@ -15,12 +15,12 @@ locals {
   mch_user_password = "" # Password of the Managed Service for ClickHouse user
 
   # Specify these settings ONLY AFTER the clusters are created. Then run "terraform apply" command again.
-  # You should set up endpoints using the GUI to obtain their IDs
+  # You should set up the source endpoint using GUI to obtain its ID
   source_endpoint_id = "" # Source endpoint ID
   transfer_enabled   = 0  # Set to 1 to enable creation of target endpoint and transfer
 
-  # Setting for the YC CLI that allows running CLI command to activate cluster
-  profile_name = "default" # Name of the YC CLI profile
+  # Setting for the YC CLI that allows running CLI command to activate the transfer
+  profile_name = "" # Name of the YC CLI profile
 
   # The following settings are predefined. Change them only if necessary.
   opensearch_port      = 9200                  # Managed Service for OpenSearch port for Internet connection  
