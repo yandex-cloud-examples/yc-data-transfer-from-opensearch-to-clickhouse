@@ -156,16 +156,26 @@ resource "yandex_mdb_clickhouse_cluster" "mych" {
     assign_public_ip = true
   }
 
-  database {
-    name = local.mch_db_name
+  lifecycle {
+    ignore_changes = [database, user]
+  }
+}
+
+resource "yandex_mdb_clickhouse_database" "mch-db" {
+  cluster_id = yandex_mdb_clickhouse_cluster.mych.id
+  name       = local.mch_db_name
+}
+
+resource "yandex_mdb_clickhouse_user" "mch-username" {
+  cluster_id = yandex_mdb_clickhouse_cluster.mych.id
+  name       = local.mch_username
+  password   = local.mch_user_password
+
+  permission {
+    database_name = yandex_mdb_clickhouse_database.mch-db.name
   }
 
-  user {
-    name     = local.mch_username
-    password = local.mch_user_password
-    permission {
-      database_name = local.mch_db_name
-    }
+  settings {
   }
 }
 
