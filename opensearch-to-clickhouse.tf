@@ -6,7 +6,7 @@
 # Specify the following settings:
 locals {
   # Settings for the Managed Service for OpenSearch cluster:  
-  mos_version           = "" # Desired version of the Opensearch. For available versions, see https://yandex.cloud/en/docs/managed-clickhouse/concepts/update-policy#versioning-policy/.
+  mos_version           = "" # Desired version of the Opensearch. For available versions, see https://yandex.cloud/en/docs/managed-opensearch/operations/cluster-version-update#version-list.
   source_admin_password = "" # Password of admin in Managed Service for OpenSearch
 
   # Settings for the Managed Service for ClickHouse cluster:
