@@ -6,7 +6,7 @@
 # Specify the following settings:
 locals {
   # Settings for the Managed Service for OpenSearch cluster:  
-  mos_version           = "" # Desired version of the Opensearch. For available versions, see the documentation main page: https://yandex.cloud/en/docs/managed-opensearch/.
+  mos_version           = "" # Desired version of the Opensearch. For available versions, see https://yandex.cloud/en/docs/managed-opensearch/operations/cluster-version-update#version-list.
   source_admin_password = "" # Password of admin in Managed Service for OpenSearch
 
   # Settings for the Managed Service for ClickHouse cluster:
@@ -29,7 +29,7 @@ locals {
   network_name         = "mynet"               # Name of the network for Managed Service for OpenSearch cluster and Managed Service for ClickHouse cluster
   subnet_name          = "mysubnet"            # Name of the subnet for Managed Service for OpenSearch cluster and Managed Service for ClickHouse cluster
   sg_name              = "mos-mch-sg"          # Name of the security group for Managed Service for OpenSearch cluster and Managed Service for ClickHouse cluster
-  mos_cluster_name     = "mos-cluster-3845-2"  # Name of the Managed Service for OpenSearch cluster  
+  mos_cluster_name     = "mos-cluster"         # Name of the Managed Service for OpenSearch cluster  
   node_group_name      = "mos-group"           # Node group name in the Managed Service for OpenSearch cluster
   dashboards_name      = "dashboards"          # Name of the dashboards node group in the Managed Service for OpenSearch cluster
   mch_cluster_name     = "mch-cluster"         # Name of the Managed Service for ClickHouse cluster
@@ -156,16 +156,24 @@ resource "yandex_mdb_clickhouse_cluster" "mych" {
     assign_public_ip = true
   }
 
-  database {
-    name = local.mch_db_name
+  lifecycle {
+    ignore_changes = [database, user]
   }
+}
 
-  user {
-    name     = local.mch_username
-    password = local.mch_user_password
-    permission {
-      database_name = local.mch_db_name
-    }
+resource "yandex_mdb_clickhouse_database" "mch-db" {
+  cluster_id = yandex_mdb_clickhouse_cluster.mych.id
+  name       = local.mch_db_name
+}
+
+resource "yandex_mdb_clickhouse_user" "mch-user" {
+  cluster_id = yandex_mdb_clickhouse_cluster.mych.id
+  name       = local.mch_username
+  password   = local.mch_user_password
+  permission {
+    database_name = yandex_mdb_clickhouse_database.mch-db.name
+  }
+  settings {
   }
 }
 
