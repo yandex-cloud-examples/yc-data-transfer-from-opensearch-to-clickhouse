@@ -134,40 +134,47 @@ resource "yandex_mdb_opensearch_cluster" "my-os-cluster" {
   }
 }
 
-resource "yandex_mdb_clickhouse_cluster" "mych" {
+resource "yandex_mdb_clickhouse_cluster_v2" "mych" {
   description        = "Managed Service for ClickHouse cluster"
   name               = local.mch_cluster_name
   environment        = "PRESTABLE"
   network_id         = yandex_vpc_network.mynet.id
   security_group_ids = [yandex_vpc_security_group.mos-mch-sg.id]
 
-  clickhouse {
-    resources {
+  clickhouse = {
+    resources = {
       resource_preset_id = "s2.micro"
       disk_type_id       = "network-ssd"
       disk_size          = 32
     }
   }
 
-  host {
-    type             = "CLICKHOUSE"
-    zone             = "ru-central1-a"
-    subnet_id        = yandex_vpc_subnet.mysubnet.id
-    assign_public_ip = true
+  hosts = {
+    "ch-host1" = {
+      type             = "CLICKHOUSE"
+      zone             = "ru-central1-a"
+      subnet_id        = yandex_vpc_subnet.mysubnet.id
+      assign_public_ip = true
+      shard_name       = "shard1"
+    }
   }
 
-  lifecycle {
-    ignore_changes = [database, user]
+  shards = {
+    "shard1" = {}
+  }
+
+  maintenance_window {
+    type = "ANYTIME"
   }
 }
 
 resource "yandex_mdb_clickhouse_database" "mch-db" {
-  cluster_id = yandex_mdb_clickhouse_cluster.mych.id
+  cluster_id = yandex_mdb_clickhouse_cluster_v2.mych.id
   name       = local.mch_db_name
 }
 
 resource "yandex_mdb_clickhouse_user" "mch-user" {
-  cluster_id = yandex_mdb_clickhouse_cluster.mych.id
+  cluster_id = yandex_mdb_clickhouse_cluster_v2.mych.id
   name       = local.mch_username
   password   = local.mch_user_password
   permission {
@@ -185,7 +192,7 @@ resource "yandex_datatransfer_endpoint" "managed-clickhouse-target" {
     clickhouse_target {
       connection {
         connection_options {
-          mdb_cluster_id = yandex_mdb_clickhouse_cluster.mych.id
+          mdb_cluster_id = yandex_mdb_clickhouse_cluster_v2.mych.id
           database       = local.mch_db_name
           user           = local.mch_username
           password {
